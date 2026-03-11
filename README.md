@@ -42,10 +42,13 @@ drive.mount('/content/drive')
 !python conventional_augmentation.py
 ```
 
-# Dataset Splitting into Training, Validation and Testing (80:10:10)
+# Load an Already-Split Dataset (`train/`, `val/`, `test/`)
 ```
-!python data_split.py
+python Flora_NET/data_split.py \
+  --dataset_root /data/users/jw/data/different_camera/c1_train \
+  --batch_size 16
 ```
+
 # Execute Model
 ```
 !python Flora_NET.py --epochs 100 --learning_rate 0.001 --batch_size 16
