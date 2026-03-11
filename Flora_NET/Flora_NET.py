@@ -311,23 +311,18 @@ class FloraNETClassification(nn.Module):
         x = self.classification_block(x)  # Apply the Classification Block
         return x
 
-"""**Importing the Command Line Arguments**"""
-import sys
-# Access command-line arguments directly
-num_epoch = int(sys.argv[1])
-num_lr = float(sys.argv[2])
-num_batch = int(sys.argv[3])
+"""**Training entrypoint**"""
 
-"""**Flora-NET Model**"""
+import argparse
+from pathlib import Path
 
-import torch
-import torch.nn as nn
+from data_split import build_dataloaders
+
 
 class FloraNET(nn.Module):
     def __init__(self, num_classes=17):
         super(FloraNET, self).__init__()
 
-        # Keep a stable, runnable baseline model so this script can be executed directly.
         self.cbs1 = CBS(in_channels=3, out_channels=128, kernel_size=3, stride=2)
         self.cbs2 = CBS(in_channels=128, out_channels=128, kernel_size=1, stride=1)
         self.cbs3 = CBS(in_channels=128, out_channels=128, kernel_size=1, stride=1)
@@ -336,18 +331,101 @@ class FloraNET(nn.Module):
         self.classifier = nn.Linear(128, num_classes)
 
     def forward(self, x):
-        x = self.cbs1(x)  # Apply CBS Block 1
-        x = self.cbs2(x)  # Apply CBS Block 2
-        x = self.cbs3(x)  # Apply CBS Block 3
-        x = self.cbs4(x)  # Apply CBS Block 4
-
+        x = self.cbs1(x)
+        x = self.cbs2(x)
+        x = self.cbs3(x)
+        x = self.cbs4(x)
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
         x = self.classifier(x)
         return x
 
-# Instantiate the complete model
-Flora_NET = FloraNET(num_classes=17)
 
-# Check the model architecture
-print(Flora_NET)
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Train FloraNET on pre-split dataset")
+    parser.add_argument("epochs", type=int, help="Number of epochs")
+    parser.add_argument("learning_rate", type=float, help="Learning rate")
+    parser.add_argument("batch_size", type=int, help="Batch size")
+    parser.add_argument(
+        "--dataset_root",
+        type=Path,
+        required=True,
+        help="Dataset root with train/ val/ test/ subfolders",
+    )
+    parser.add_argument("--image_size", type=int, default=224)
+    parser.add_argument("--num_workers", type=int, default=2)
+    return parser.parse_args()
+
+
+def evaluate(model: nn.Module, loader, criterion, device: torch.device):
+    model.eval()
+    total_loss = 0.0
+    total = 0
+    correct = 0
+    with torch.no_grad():
+        for images, labels in loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            total_loss += loss.item()
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+    return total_loss / max(len(loader), 1), 100.0 * correct / max(total, 1)
+
+
+def main() -> None:
+    args = parse_args()
+
+    dataloaders, datasets_by_split = build_dataloaders(
+        dataset_root=args.dataset_root,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        image_size=args.image_size,
+    )
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = FloraNET(num_classes=len(datasets_by_split["train"].classes)).to(device)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
+
+    print(f"Device: {device}")
+    print(f"Classes: {datasets_by_split['train'].classes}")
+
+    for epoch in range(args.epochs):
+        model.train()
+        running_loss = 0.0
+        total = 0
+        correct = 0
+
+        for images, labels in dataloaders["train"]:
+            images = images.to(device)
+            labels = labels.to(device)
+
+            optimizer.zero_grad()
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item()
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+        train_loss = running_loss / max(len(dataloaders["train"]), 1)
+        train_acc = 100.0 * correct / max(total, 1)
+        val_loss, val_acc = evaluate(model, dataloaders["val"], criterion, device)
+        print(
+            f"Epoch {epoch + 1}/{args.epochs}, "
+            f"Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}, "
+            f"Train Acc: {train_acc:.2f}%, Val Acc: {val_acc:.2f}%"
+        )
+
+    test_loss, test_acc = evaluate(model, dataloaders["test"], criterion, device)
+    print(f"Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.2f}%")
+
+
+if __name__ == "__main__":
+    main()

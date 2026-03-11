@@ -62,12 +62,12 @@ python Flora_NET/data_split.py \
   --image_size 224
 
 # 3) Run training (Flora_NET.py reads positional args: epoch lr batch)
-python Flora_NET/Flora_NET.py 100 0.001 16
+python Flora_NET/Flora_NET.py 100 0.001 16 --dataset_root /data/users/jw/data/different_camera/c1_train
 ```
 
 # Execute Model
 ```
-python Flora_NET/Flora_NET.py 100 0.001 16
+python Flora_NET/Flora_NET.py 100 0.001 16 --dataset_root /data/users/jw/data/different_camera/c1_train
 ```
 
 # Running Model
