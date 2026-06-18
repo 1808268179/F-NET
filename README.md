@@ -49,9 +49,25 @@ python Flora_NET/data_split.py \
   --batch_size 16
 ```
 
+# Quick start (your dataset)
+```bash
+# 1) Install dependencies
+pip install -r requirement.txt
+
+# 2) Verify split folders + class names can be loaded
+python Flora_NET/data_split.py \
+  --dataset_root /data/users/jw/data/different_camera/c1_train \
+  --batch_size 16 \
+  --num_workers 2 \
+  --image_size 224
+
+# 3) Run training (Flora_NET.py reads positional args: epoch lr batch)
+python Flora_NET/Flora_NET.py 100 0.001 16 --dataset_root /data/users/jw/data/different_camera/c1_train
+```
+
 # Execute Model
 ```
-!python Flora_NET.py --epochs 100 --learning_rate 0.001 --batch_size 16
+python Flora_NET/Flora_NET.py 100 0.001 16 --dataset_root /data/users/jw/data/different_camera/c1_train
 ```
 
 # Running Model

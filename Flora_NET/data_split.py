@@ -1,9 +1,6 @@
 import argparse
 from pathlib import Path
 
-from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
-
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -24,6 +21,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def build_dataloaders(dataset_root: Path, batch_size: int, num_workers: int, image_size: int):
+    from torch.utils.data import DataLoader
+    from torchvision import datasets, transforms
+
     split_dirs = {
         "train": dataset_root / "train",
         "val": dataset_root / "val",
